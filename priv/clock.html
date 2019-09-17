@@ -1,0 +1,28 @@
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+    <title>Clock client</title>
+    <script type="text/javascript" src="/static/jquery.min.js"></script>
+    <script type="text/javascript" src="/static/websock.js"></script>
+    <link rel="stylesheet" href="/static/clock.css" type="text/css">
+</head>
+
+<body>
+<div id="clock"></div>
+<button id="b1">start</button>
+<button id="b2">stop</button>
+</body>
+
+<footer>
+    <script>
+$(document).ready(run);
+
+function run(){
+    $("#b1").click(function(){ send_json({clicked:'start'}); });
+    $("#b2").click(function(){ send_json({clicked:'stop'}); });
+    connect_to_erlang("localhost", 8080, "clock");
+}
+
+    </script>
+</footer>
+</html>

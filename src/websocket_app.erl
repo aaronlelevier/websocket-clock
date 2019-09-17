@@ -12,8 +12,13 @@
 start(_Type, _Args) ->
 	Dispatch = cowboy_router:compile([
 		{'_', [
+			% chat w/ reply
 			{"/", cowboy_static, {priv_file, websocket, "index.html"}},
 			{"/websocket", ws_h, []},
+			% clock
+			{"/clock", cowboy_static, {priv_file, websocket, "clock.html"}},
+			{"/websocket/clock", clock_h, []},
+			% static assets
 			{"/static/[...]", cowboy_static, {priv_dir, websocket, "static"}}
 		]}
 	]),

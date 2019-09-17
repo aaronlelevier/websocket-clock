@@ -6,9 +6,11 @@
 -export([websocket_info/2]).
 
 init(Req, Opts) ->
+	io:format("Req:~p Opts:~p~n", [Req, Opts]),
 	{cowboy_websocket, Req, Opts}.
 
 websocket_init(State) ->
+	io:format("State:~p~n", [State]),
 	erlang:start_timer(1000, self(), <<"Hello!">>),
 	{ok, State}.
 
