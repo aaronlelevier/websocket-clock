@@ -8,142 +8,117 @@
 %%%-------------------------------------------------------------------
 -module(clock_h).
 -author("aaron lelevier").
--export([init/2, start/1, current_time/0,
+-export([
+  init/2,
+  current_time/0,
   websocket_init/1,
   websocket_info/2,
-  websocket_handle/2,
-  websocket_handle/3,
-  websocket_terminate/3,
-  websocket_info/3
+  websocket_handle/2
 ]).
 -import(ezwebframe_mochijson2, [encode/1, decode/1]).
 
+init(Req, Opts) ->
+  io:format("Line:~p Req:~p Opts:~p~n", [?LINE, Req, Opts]),
+  {cowboy_websocket, Req, Opts}.
 
-% placeholder `init` for Makefile
-
-%% cowboy/examples/websocket
-
-init(Req, _Opts) ->
-  Pid = spawn_link(?MODULE, start, [self()]),
-  {cowboy_websocket, Req, Pid}.
-
-%% book-code
-
-start(Browser) ->
-  io:format("Line:~p start Browser:~p~n", [?LINE, Browser]),
-  Browser ! [{cmd, fill_div}, {id, clock}, {txt, current_time()}],
-  running(Browser).
-
-running(Browser) ->
-  io:format("Line:~p running Browser:~p~n", [?LINE, Browser]),
-  receive
-    {Browser, {struct, [{clicked, <<"stop">>}]}} ->
-      Browser ! [{cmd, fill_div}, {id, clock}, {txt, <<"Stopped">>}],
-      idle(Browser);
-    Other ->
-      io:format("Line:~p running Other:~p~n", [?LINE, Other]),
-      running(Browser)
-  after 1000 ->
-    Browser ! [{cmd, fill_div}, {id, clock}, {txt, current_time()}],
-    running(Browser)
-  end.
-
-idle(Browser) ->
-  io:format("Line~p idle~n", [?LINE]),
-  receive
-    {Browser, {struct, [{clicked, <<"start">>}]}} ->
-      Browser ! [{cmd, fill_div}, {id, clock}, {txt, <<"Starting">>}],
-      running(Browser);
-    Other ->
-      io:format("Line:~p idle Other:~p~n", [?LINE, Other]),
-      running(Browser)
-  end.
-
-current_time() ->
-  {Hour, Min, Sec} = time(),
-  FTime = io_lib:format("~2.2.0w:~2.2.0w:~2.2.0w", [Hour, Min, Sec]),
-  io:format("Line:~p clock_h:current_time:~p~n", [?LINE, FTime]),
-  list_to_binary(FTime).
-
-%% helpers
-
-log_line(Line) ->
-  io:format("Line:~p~n", [Line]).
-
-%%----------------------------------------------------------------------
-%% websocket stuff
-
-%% aaron
-
-%% called when the the websocket connection is first established
-%% State is the client Pid
--spec websocket_init(State::pid()) -> tuple().
 websocket_init(State) ->
   io:format("Line:~p websocket_init State:~p~n", [?LINE, State]),
-  Msg = [{cmd, fill_div}, {id, clock}, {txt, current_time()}],
-  Bin = list_to_binary(encode([{struct, Msg}])),
-  {reply, {text, Bin}, State}.
+  erlang:start_timer(100, self(), encode_and_fill_div(<<"Starting">>)),
+  start_clock(),
+  {ok, State}.
 
-websocket_handle({text, Msg}, State) ->
-  io:format("Line:~p Msg:~p State:~p~n", [?LINE, Msg, State]),
-  websocket_handle({text, Msg}, State, self()).
-
-%% TODO: 2nd func clause works on Browswer click, but start/stop loop not working
-
-websocket_info({log, Text}, State) ->
-  io:format("Line:~p websocket_info~n", [?LINE]),
-  {reply, {text, Text}, State};
+websocket_info({timeout, _Ref, Msg}, State) ->
+  io:format("Line:~p websocket_info Msg:~p State:~p~n",
+    [?LINE, Msg, State]),
+  case get(is_running) of
+    true ->
+      current_time_delay(),
+      {reply, {text, Msg}, State};
+    false ->
+      Msg1 = encode_and_fill_div(<<"Stopped">>),
+      {reply, {text, Msg1}, State}
+  end;
 websocket_info({Pid, {struct, [{clicked, Msg0}]}}, State) ->
   io:format("Line:~p websocket_info Pid:~p State:~p Msg0:~p~n",
     [?LINE, Pid, State, Msg0]),
-  Msg = [{cmd, fill_div}, {id, clock}, {txt, current_time()}],
-  B = list_to_binary(encode([{struct, Msg}])),
-  {reply, {text, B}, State};
+  case start_or_stop_clock(Msg0) of
+    true ->
+      % required or else won't go in first pattern match
+      % `websocket_info({timeout, ...`
+      current_time_delay(),
+      {reply, {text, current_time_bin()}, State};
+    false ->
+      {ok, State}
+  end;
 websocket_info(Info, State) ->
   io:format("Line:~p websocket_info Info:~p State:~p~n", [?LINE, Info, State]),
   {ok, State}.
 
-%% book code
+websocket_handle({text, Msg}, State) ->
+  io:format("Line:~p Msg:~p State:~p~n", [?LINE, Msg, State]),
+  websocket_handle({text, Msg}, State, self());
+websocket_handle(Msg, State) ->
+  io:format("Line:~p Msg:~p State:~p~n", [?LINE, Msg, State]),
+  {ok, State}.
 
-websocket_handle({text, Msg}, Req, Pid) ->
-  io:format("Line:~p Msg:~p Req:~p Pid:~p~n", [?LINE, Msg, Req, Pid]),
+websocket_handle({text, Msg}, State, Pid) ->
   %% This is a Json message from the browser
+  io:format("Line:~p Msg:~p State:~p Pid:~p~n", [?LINE, Msg, State, Pid]),
   case catch decode(Msg) of
     {'EXIT', _Why} ->
       Pid ! {invalidMessageNotJSON, Msg};
     {struct, _} = Z ->
-      io:format("Line:~p Z:~p~n", [?LINE, Z]),
       X1 = atomize(Z),
-      io:format("Line:~p X1:~p~n", [?LINE, X1]),
       Pid ! {self(), X1};
     Other ->
-      io:format("Line:~p Other:~p~n", [?LINE, Other]),
       Pid ! {invalidMessageNotStruct, Other}
   end,
-  {ok, Req}.
+  {ok, State}.
 
-websocket_info({send, Str}, Req, Pid) ->
-  log_line(?LINE),
-  {reply, {text, Str}, Req, Pid, hibernate};
-websocket_info([{cmd, _} | _] = L, Req, Pid) ->
-  log_line(?LINE),
-  B = list_to_binary(encode([{struct, L}])),
-  {reply, {text, B}, Req, Pid, hibernate};
-websocket_info(Info, Req, Pid) ->
-  log_line(?LINE),
-  io:format("Handle_info Info:~p Pid:~p~n", [Info, Pid]),
-  {ok, Req, Pid, hibernate}.
+%% current time
 
-websocket_terminate(_Reason, _Req, Pid) ->
-  log_line(?LINE),
-  io:format("websocket.erl terminate:~n"),
-  exit(Pid, socketClosed),
-  ok.
+current_time_bin() ->
+  encode_and_fill_div(current_time()).
 
-%%----------------------------------------------------------------------
-%% atomize turns all the keys in a struct to atoms
+current_time() ->
+  {Hour, Min, Sec} = time(),
+  FTime = io_lib:format("~2.2.0w:~2.2.0w:~2.2.0w", [Hour, Min, Sec]),
+  io:format("Line:~p current_time:~p~n", [?LINE, FTime]),
+  list_to_binary(FTime).
 
-atomize({struct,L}) ->
+current_time_delay() ->
+  erlang:start_timer(1000, self(), current_time_bin()).
+
+%% clock
+
+start_or_stop_clock(Bin) ->
+  io:format("Line:~p start_or_stop_clock Bin:~p~n", [?LINE, Bin]),
+  case binary_to_atom(Bin) of
+    start ->
+      io:format("Line:~p start_or_stop_clock start~n", [?LINE]),
+      start_clock(),
+      true;
+    stop ->
+      io:format("Line:~p start_or_stop_clock stop~n", [?LINE]),
+      stop_clock(),
+      false
+  end.
+
+start_clock() ->
+  put(is_running, true).
+
+stop_clock() ->
+  put(is_running, false).
+
+%% other helpers
+
+encode_and_fill_div(Term) ->
+  Msg = [{cmd, fill_div}, {id, clock}, {txt, Term}],
+  list_to_binary(encode([{struct, Msg}])).
+
+%% book-code helpers
+
+atomize({struct, L}) ->
   {struct, [{binary_to_atom(I), atomize(J)} || {I, J} <- L]};
 atomize(L) when is_list(L) ->
   [atomize(I) || I <- L];
