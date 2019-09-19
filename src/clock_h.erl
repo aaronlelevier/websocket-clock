@@ -1,8 +1,8 @@
 %%%-------------------------------------------------------------------
 %%% @author aaron lelevier
 %%% @copyright (C) 2019, <COMPANY>
-%%% @doc
-%%%
+%%% @doc API Server where the Client can start and stop a clock by
+%%% by sending commands to the Server using websocket communication
 %%% @end
 %%% Created : 16. Sep 2019 6:35 AM
 %%%-------------------------------------------------------------------
@@ -17,16 +17,25 @@
 ]).
 -import(ezwebframe_mochijson2, [encode/1, decode/1]).
 
+%% called when Cowboy starts, says to use websocket communication
+%% port # to use is configured in `websocket_app.erl`
 init(Req, Opts) ->
   io:format("Line:~p Req:~p Opts:~p~n", [?LINE, Req, Opts]),
   {cowboy_websocket, Req, Opts}.
 
+%% called when 1st websocket communication is received
 websocket_init(State) ->
   io:format("Line:~p websocket_init State:~p~n", [?LINE, State]),
   erlang:start_timer(100, self(), encode_and_fill_div(<<"Starting">>)),
   start_clock(),
   {ok, State}.
 
+%% sends replies to client with:
+%%  `{reply, {text, Msg}, State}`
+%% results in no reply to client
+%%  `{ok, State}`
+%% triggered on timeout or messages to our self, for example
+%% from `handler/3` below
 websocket_info({timeout, _Ref, Msg}, State) ->
   io:format("Line:~p websocket_info Msg:~p State:~p~n",
     [?LINE, Msg, State]),
@@ -54,14 +63,18 @@ websocket_info(Info, State) ->
   io:format("Line:~p websocket_info Info:~p State:~p~n", [?LINE, Info, State]),
   {ok, State}.
 
+%% handler for incoming messages from client
 websocket_handle({text, Msg}, State) ->
   io:format("Line:~p Msg:~p State:~p~n", [?LINE, Msg, State]),
-  websocket_handle({text, Msg}, State, self());
+  handler({text, Msg}, State, self());
 websocket_handle(Msg, State) ->
   io:format("Line:~p Msg:~p State:~p~n", [?LINE, Msg, State]),
   {ok, State}.
 
-websocket_handle({text, Msg}, State, Pid) ->
+%% receives a binary argument `Msg` and converts it to a Term
+%% then uses `Pid`, which is the Pid of the current process
+%% to reply to our self and `websocket_info` will then be triggered
+handler({text, Msg}, State, Pid) ->
   %% This is a Json message from the browser
   io:format("Line:~p Msg:~p State:~p Pid:~p~n", [?LINE, Msg, State, Pid]),
   case catch decode(Msg) of
@@ -117,7 +130,9 @@ encode_and_fill_div(Term) ->
   list_to_binary(encode([{struct, Msg}])).
 
 %% book-code helpers
-
+%% `L` is a 2 item tuple of binary types, and `atomize` converts the 1st
+%% item from a `binary` to an `atom`.
+%% Also done recursively on the 2nd item, if it is also a list of 2 item tuples
 atomize({struct, L}) ->
   {struct, [{binary_to_atom(I), atomize(J)} || {I, J} <- L]};
 atomize(L) when is_list(L) ->
