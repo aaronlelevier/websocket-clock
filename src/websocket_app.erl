@@ -18,6 +18,9 @@ start(_Type, _Args) ->
 			% clock
 			{"/clock", cowboy_static, {priv_file, websocket, "clock.html"}},
 			{"/websocket/clock", clock_h, []},
+			% interact
+			{"/interact", cowboy_static, {priv_file, websocket, "interact.html"}},
+			{"/websocket/interact", interact_h, []},
 			% static assets
 			{"/static/[...]", cowboy_static, {priv_dir, websocket, "static"}}
 		]}

@@ -1,0 +1,26 @@
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+    <title>Clock client</title>
+    <script type="text/javascript" src="/static/jquery.min.js"></script>
+    <script type="text/javascript" src="/static/websock.js"></script>
+    <link rel="stylesheet" href="/static/interact.css" type="text/css">
+</head>
+
+<body>
+<h2>Interaction</h2>
+<div id="scroll"></div>
+<br>
+<input class="live_input" id="input"/>
+</body>
+
+<script>
+
+$(document).ready(run);
+
+function run(){
+    connect_to_erlang("localhost", 8080, "interact");
+}
+
+</script>
+</html>

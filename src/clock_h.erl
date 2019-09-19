@@ -13,7 +13,8 @@
   current_time/0,
   websocket_init/1,
   websocket_info/2,
-  websocket_handle/2
+  websocket_handle/2,
+  handler/3
 ]).
 -import(ezwebframe_mochijson2, [encode/1, decode/1]).
 
