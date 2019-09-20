@@ -21,6 +21,9 @@ start(_Type, _Args) ->
 			% interact
 			{"/interact", cowboy_static, {priv_file, websocket, "interact.html"}},
 			{"/websocket/interact", interact_h, []},
+			% chat
+			{"/chat", cowboy_static, {priv_file, websocket, "chat.html"}},
+			{"/websocket/chat", chat_h, []},
 			% static assets
 			{"/static/[...]", cowboy_static, {priv_dir, websocket, "static"}}
 		]}

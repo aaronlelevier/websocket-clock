@@ -1,4 +1,4 @@
--module(interact_h).
+-module(chat_h).
 
 -export([init/2]).
 -export([websocket_init/1]).
@@ -19,12 +19,21 @@ websocket_handle(Msg, State) ->
   io:format("Line:~p Msg:~p State:~p~n", [?LINE, Msg, State]),
   {ok, State}.
 
-websocket_info({Pid, {struct, [{entry, _Input}, {txt, Msg0}]}}, State) ->
-  io:format("Line:~p websocket_info Pid:~p State:~p Msg0:~p~n",
-    [?LINE, Pid, State, Msg0]),
-  Time = clock_h:current_time(),
+websocket_info({Pid, {struct, [{join, Name}]}}, State) ->
+  io:format("Line:~p websocket_info Pid:~p Name:~p State:~p~n",
+    [?LINE, Pid, Name, State]),
   Msg = [{cmd, append_div}, {id, scroll},
-    {txt, erlang:list_to_binary([Time, " > ", Msg0, "<br>"])}],
+    {txt, erlang:list_to_binary([Name, " joined the group<br>"])}],
+  Text = list_to_binary(encode([{struct, Msg}])),
+  % send cmd to append to "users" div
+  erlang:start_timer(0, self(), Name),
+  % sends "joined" Msg
+  {reply, {text, Text}, State};
+websocket_info({timeout, _Ref, Name}, State) ->
+  io:format("Line:~p websocket_info Name:~p State:~p~n",
+    [?LINE, Name, State]),
+  Msg = [{cmd, fill_div}, {id, users},
+    {txt, erlang:list_to_binary([" > ", Name, "<br>"])}],
   Text = list_to_binary(encode([{struct, Msg}])),
   {reply, {text, Text}, State};
 websocket_info(Info, State) ->
