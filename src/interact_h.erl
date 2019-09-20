@@ -14,7 +14,7 @@ websocket_init(State) ->
 
 websocket_handle({text, Msg}, State) ->
   io:format("Line:~p Msg:~p State:~p~n", [?LINE, Msg, State]),
-  clock_h:handler({text, Msg}, State, self());
+  util:handler({text, Msg}, State, self());
 websocket_handle(Msg, State) ->
   io:format("Line:~p Msg:~p State:~p~n", [?LINE, Msg, State]),
   {ok, State}.
