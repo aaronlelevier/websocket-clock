@@ -1,0 +1,35 @@
+# Websocket example
+
+This repo is a combination of the example code used in *Programming Erlang 2nd Ed.* by Joe Armstrong chapter 18 "Browsing with Websockets in the Browser". Repo link::
+
+[https://github.com/joearms/ezwebframe](https://github.com/joearms/ezwebframe)
+
+And the websocket starter template in the Erlang Cowboy repo link:
+
+[https://github.com/ninenines/cowboy/tree/master/examples/websocket](https://github.com/ninenines/cowboy/tree/master/examples/websocket)
+
+I took both sources as a reference and adapted to work, since I was having trouble running the [ezwebframe](https://github.com/joearms/ezwebframe) example as-is on the most recent Erlang Cowboy version
+
+## Usage
+
+To try this example, you need GNU `make` and `git` in your PATH.
+
+To build and run the example, use the following command:
+
+```
+$ make run
+```
+Then point your browser to [http://localhost:8080](http://localhost:8080)
+
+## Examples
+
+Included:
+
+- clock
+- interact
+- chat
+
+Not included:
+
+- IRC Lite
+- Graphics in the Browser
